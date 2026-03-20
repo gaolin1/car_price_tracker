@@ -1,0 +1,933 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Car Price Tracker</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      :root {
+        --bg: #f3efe8;
+        --panel: #fffaf4;
+        --ink: #182026;
+        --muted: #62707b;
+        --line: #dccfc0;
+        --accent: #bd4a1f;
+        --accent-2: #1f6f78;
+        --accent-3: #405b76;
+        --accent-4: #4f7c5c;
+        --accent-5: #8a5d2b;
+        --danger: #b33a3a;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Segoe UI", sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at top left, rgba(189, 74, 31, 0.12), transparent 22%),
+          linear-gradient(180deg, #faf7f2 0%, var(--bg) 100%);
+      }
+      .page {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 28px 18px 48px;
+      }
+      .hero {
+        display: grid;
+        grid-template-columns: 1.4fr 1fr;
+        gap: 18px;
+        margin-bottom: 18px;
+      }
+      .hero h1 {
+        margin: 0 0 10px;
+        font-size: 2.5rem;
+      }
+      .hero p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        box-shadow: 0 12px 28px rgba(0, 0, 0, 0.06);
+      }
+      .hero-meta, .controls, .chart-card, .records, .compare-summary {
+        padding: 20px;
+      }
+      .hero-meta h2, .chart-card h2, .compare-summary h2, .records h2 {
+        margin: 0 0 12px;
+        font-size: 1.06rem;
+      }
+      .hero-meta p { margin: 0; color: var(--muted); line-height: 1.45; }
+      .toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: end;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+      }
+      .toolbar-actions { display: flex; gap: 10px; }
+      .vehicle-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(140px, 1fr));
+        gap: 12px;
+      }
+      .vehicle-block + .vehicle-block { margin-top: 18px; }
+      .comparison-list { display: grid; gap: 12px; }
+      .comparison-row {
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: rgba(255,255,255,0.72);
+      }
+      .comparison-actions {
+        display: flex;
+        justify-content: flex-end;
+        margin-bottom: 10px;
+      }
+      .remove-row {
+        width: auto;
+        padding: 10px 12px;
+        background: #f4dfdb;
+        color: var(--danger);
+      }
+      label {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 0.92rem;
+        color: var(--muted);
+      }
+      select, button {
+        width: 100%;
+        padding: 12px 14px;
+        border-radius: 12px;
+        border: 1px solid var(--line);
+        font-size: 1rem;
+      }
+      button {
+        border: none;
+        background: var(--accent);
+        color: #fff;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      button.secondary {
+        width: auto;
+        background: #eadfd3;
+        color: var(--ink);
+      }
+      .message, .error {
+        padding: 14px 16px;
+        margin-bottom: 18px;
+      }
+      .message { color: var(--muted); }
+      .error {
+        color: #8d2020;
+        background: #fdeaea;
+        border: 1px solid #efc1c1;
+        border-radius: 12px;
+      }
+      .hidden { display: none; }
+      .summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 16px;
+        margin-bottom: 18px;
+      }
+      .summary-card { padding: 18px; }
+      .summary-card h3 {
+        margin: 0 0 8px;
+        font-size: 0.94rem;
+        color: var(--muted);
+      }
+      .summary-card p {
+        margin: 0;
+        font-size: 1.52rem;
+        font-weight: 700;
+      }
+      .compare-summary-list {
+        display: grid;
+        gap: 10px;
+      }
+      .compare-summary-item {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 12px 14px;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+      }
+      .compare-summary-item strong { display: block; }
+      .charts {
+        display: grid;
+        grid-template-columns: 1.2fr 1fr;
+        gap: 18px;
+        margin-bottom: 18px;
+      }
+      .toggle-row {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 14px;
+      }
+      .toggle-row button {
+        width: auto;
+        background: #efe4d8;
+        color: var(--ink);
+      }
+      .toggle-row button.active {
+        background: var(--accent);
+        color: #fff;
+      }
+      .chart-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 10px;
+      }
+      .chart-header h2 {
+        margin: 0;
+      }
+      .expand-chart {
+        width: auto;
+        padding: 10px 14px;
+        background: #eadfd3;
+        color: var(--ink);
+      }
+      .modal {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background: rgba(24, 32, 38, 0.48);
+        z-index: 1000;
+      }
+      .modal.hidden {
+        display: none;
+      }
+      .modal-panel {
+        width: min(1200px, 100%);
+        max-height: calc(100vh - 48px);
+        padding: 20px;
+        overflow: auto;
+      }
+      .modal-toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+      .modal-toolbar h2 {
+        margin: 0;
+      }
+      .close-modal {
+        width: auto;
+        padding: 10px 14px;
+        background: #eadfd3;
+        color: var(--ink);
+      }
+      .modal-chart-wrap {
+        min-height: 520px;
+      }
+      .modal-chart-wrap canvas {
+        width: 100% !important;
+        height: 520px !important;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      th, td {
+        text-align: left;
+        padding: 10px 8px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+      th {
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+      a { color: var(--accent-2); }
+      @media (max-width: 1050px) {
+        .hero, .charts, .vehicle-grid { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <section class="hero">
+        <div>
+          <h1>Car Price Tracker</h1>
+          <p>
+            The app now uses MarketCheck as its primary source for newer-car market pricing and
+            listing-history trends. That gives much better coverage for cars like Model 3, Model Y,
+            and HR-V than the old enthusiast-auction source.
+          </p>
+        </div>
+        <aside class="card hero-meta">
+          <h2>Provider Status</h2>
+          <p id="provider-status">Loading provider status...</p>
+        </aside>
+      </section>
+
+      <section class="card controls">
+        <div class="toolbar">
+          <div>
+            <label for="start-year">Chart Start Year</label>
+            <select id="start-year">
+              {% for year in years %}
+              <option value="{{ year }}" {% if year == years[5] %}selected{% endif %}>{{ year }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="toolbar-actions">
+            <button id="add-comparison" class="secondary" type="button">+ Add Comparison</button>
+            <button id="run-report" type="button">Update Tracker</button>
+          </div>
+        </div>
+
+        <div class="vehicle-block">
+          <label>Primary Vehicle</label>
+          <div id="primary-row" class="vehicle-grid"></div>
+        </div>
+
+        <div class="vehicle-block">
+          <label>Comparisons</label>
+          <div id="comparison-list" class="comparison-list"></div>
+        </div>
+      </section>
+
+      <div id="error" class="error hidden"></div>
+      <div id="message" class="card message">Waiting for a query.</div>
+
+      <section class="summary">
+        <article class="card summary-card">
+          <h3>Primary Avg Price</h3>
+          <p id="primary-average">-</p>
+        </article>
+        <article class="card summary-card">
+          <h3>Primary Depreciation</h3>
+          <p id="primary-depreciation">-</p>
+        </article>
+        <article class="card summary-card">
+          <h3 id="coverage-label">Coverage</h3>
+          <p id="coverage-value">-</p>
+        </article>
+        <article class="card summary-card">
+          <h3>Active Comparisons</h3>
+          <p id="comparison-count">0</p>
+        </article>
+      </section>
+
+      <section class="card compare-summary">
+        <h2>Comparison Summary</h2>
+        <div id="compare-summary-list" class="compare-summary-list"></div>
+      </section>
+
+      <section class="charts">
+        <article class="card chart-card">
+          <div class="toggle-row">
+            <button id="toggle-month" class="active" type="button">Month</button>
+            <button id="toggle-year" type="button">Year</button>
+          </div>
+          <div class="chart-header">
+            <h2 id="price-chart-title">Average Price by Month</h2>
+            <button class="expand-chart" type="button" data-expand-chart="price">Expand</button>
+          </div>
+          <canvas id="price-chart"></canvas>
+        </article>
+        <article class="card chart-card">
+          <div class="chart-header">
+            <h2 id="depreciation-title">Depreciation Comparison</h2>
+            <button class="expand-chart" type="button" data-expand-chart="depreciation">Expand</button>
+          </div>
+          <canvas id="depreciation-chart"></canvas>
+        </article>
+      </section>
+
+      <section class="card records">
+        <h2 id="records-title">Recent Data Points</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Label</th>
+              <th>Price</th>
+              <th>Link</th>
+            </tr>
+          </thead>
+          <tbody id="records-body"></tbody>
+        </table>
+      </section>
+    </div>
+
+    <div id="chart-modal" class="modal hidden" aria-hidden="true">
+      <div class="card modal-panel">
+        <div class="modal-toolbar">
+          <h2 id="modal-chart-title">Expanded Chart</h2>
+          <button id="close-chart-modal" class="close-modal" type="button">Close</button>
+        </div>
+        <div class="modal-chart-wrap">
+          <canvas id="modal-chart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <template id="vehicle-row-template">
+      <div class="field">
+        <label>Vehicle Year</label>
+        <select data-role="vehicle_year"></select>
+      </div>
+      <div class="field">
+        <label>Manufacturer</label>
+        <select data-role="manufacturer"></select>
+      </div>
+      <div class="field">
+        <label>Model</label>
+        <select data-role="model"></select>
+      </div>
+      <div class="field">
+        <label>Trim</label>
+        <select data-role="trim"></select>
+      </div>
+    </template>
+
+    <template id="comparison-row-template">
+      <div class="comparison-row">
+        <div class="comparison-actions">
+          <button class="remove-row" type="button" data-role="remove">Remove</button>
+        </div>
+        <div class="vehicle-grid" data-role="fields"></div>
+      </div>
+    </template>
+
+    <script>
+      const bootCatalog = {{ boot_catalog|tojson }};
+      const state = {
+        provider: null,
+        charts: { price: null, depreciation: null, modal: null },
+        chartDefs: {},
+        expandedChartKey: null,
+        currentView: "month",
+        latestData: null,
+        requestCache: new Map(),
+      };
+      const catalogCacheVersion = "catalog-v3";
+      const catalogCacheTTL = 30 * 24 * 60 * 60 * 1000;
+      const palette = ["#bd4a1f", "#1f6f78", "#405b76", "#4f7c5c", "#8a5d2b", "#6b4c9a", "#2f8f83", "#9c4a6f"];
+      const currency = new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "USD",
+        maximumFractionDigits: 0,
+      });
+
+      function setError(message) {
+        const el = document.getElementById("error");
+        if (!message) {
+          el.textContent = "";
+          el.classList.add("hidden");
+          return;
+        }
+        el.textContent = message;
+        el.classList.remove("hidden");
+      }
+
+      function clearLegacyCatalogCache() {
+        const staleKeys = [];
+        for (let index = 0; index < localStorage.length; index += 1) {
+          const key = localStorage.key(index);
+          if (key && key.includes("catalog:") && !key.startsWith(`${catalogCacheVersion}:`)) {
+            staleKeys.push(key);
+          }
+        }
+        staleKeys.forEach((key) => localStorage.removeItem(key));
+      }
+
+      function catalogStorageKey(url) {
+        return `${catalogCacheVersion}:catalog:${url}`;
+      }
+
+      function readCatalogCache(url) {
+        const cached = localStorage.getItem(catalogStorageKey(url));
+        if (!cached) return null;
+        try {
+          const parsed = JSON.parse(cached);
+          if (Date.now() - parsed.savedAt < catalogCacheTTL) {
+            return parsed.data;
+          }
+        } catch (error) {
+        }
+        return null;
+      }
+
+      function writeCatalogCache(url, data) {
+        localStorage.setItem(catalogStorageKey(url), JSON.stringify({ savedAt: Date.now(), data }));
+      }
+
+      async function fetchJSON(url) {
+        if (state.requestCache.has(url)) {
+          return state.requestCache.get(url);
+        }
+        if (url.startsWith("/api/catalog/")) {
+          const cached = readCatalogCache(url);
+          if (cached) {
+            state.requestCache.set(url, cached);
+            return cached;
+          }
+        }
+        const response = await fetch(url);
+        const text = await response.text();
+        let data = null;
+        try {
+          data = JSON.parse(text);
+        } catch (error) {
+          throw new Error(`Unexpected server response (${response.status}).`);
+        }
+        if (!response.ok) throw new Error(data.error || "Request failed.");
+        state.requestCache.set(url, data);
+        if (url.startsWith("/api/catalog/")) {
+          writeCatalogCache(url, data);
+        }
+        return data;
+      }
+
+      function setOptions(select, values, preferred = null, labelFor = (value) => value) {
+        const current = preferred ?? select.value;
+        select.innerHTML = "";
+        values.forEach((value) => {
+          const option = document.createElement("option");
+          option.value = value;
+          option.textContent = labelFor(value);
+          select.appendChild(option);
+        });
+        if (values.includes(current)) select.value = current;
+      }
+
+      function yearOptions() {
+        return ["all", ...(bootCatalog.years || []).map(String)];
+      }
+
+      function yearLabel(value) {
+        return value === "all" ? "All Years" : value;
+      }
+
+      function bootstrapMakes(yearValue) {
+        if (yearValue !== String(bootCatalog.default_vehicle_year)) return null;
+        return bootCatalog.makes || null;
+      }
+
+      function bootstrapModels(yearValue, makeValue) {
+        if (yearValue !== String(bootCatalog.default_vehicle_year)) return null;
+        if (makeValue !== "Tesla") return null;
+        return bootCatalog.tesla_models || null;
+      }
+
+      function bootstrapTrims(yearValue, makeValue, modelValue) {
+        if (yearValue !== String(bootCatalog.default_vehicle_year)) return null;
+        if (makeValue !== "Tesla") return null;
+        return bootCatalog.tesla_trims?.[modelValue] || null;
+      }
+
+      async function hydrateVehicleRow(container, defaults = {}) {
+        const yearSelect = container.querySelector('[data-role="vehicle_year"]');
+        const makeSelect = container.querySelector('[data-role="manufacturer"]');
+        const modelSelect = container.querySelector('[data-role="model"]');
+        const trimSelect = container.querySelector('[data-role="trim"]');
+
+        const yearValues = yearOptions();
+        const defaultYear = defaults.vehicle_year == null ? "all" : String(defaults.vehicle_year);
+        setOptions(yearSelect, yearValues, defaultYear, yearLabel);
+
+        async function syncMakes(preferred = null) {
+          const yearValue = yearSelect.value;
+          const bootstrapItems = bootstrapMakes(yearValue);
+          const makes = bootstrapItems || (
+            await fetchJSON(`/api/catalog/makes?vehicle_year=${encodeURIComponent(yearValue)}`)
+          ).items;
+          setOptions(makeSelect, makes, preferred || defaults.manufacturer || makes[0]);
+          await syncModels();
+        }
+
+        async function syncModels(preferred = null) {
+          const yearValue = yearSelect.value;
+          const bootstrapItems = bootstrapModels(yearValue, makeSelect.value);
+          const models = bootstrapItems || (
+            await fetchJSON(
+              `/api/catalog/models?vehicle_year=${encodeURIComponent(yearValue)}&manufacturer=${encodeURIComponent(makeSelect.value)}`
+            )
+          ).items;
+          setOptions(modelSelect, models, preferred || defaults.model || models[0]);
+          await syncTrims();
+        }
+
+        async function syncTrims(preferred = null) {
+          const yearValue = yearSelect.value;
+          const bootstrapItems = bootstrapTrims(yearValue, makeSelect.value, modelSelect.value);
+          const trims = bootstrapItems || (
+            await fetchJSON(
+              `/api/catalog/trims?vehicle_year=${encodeURIComponent(yearValue)}&manufacturer=${encodeURIComponent(makeSelect.value)}&model=${encodeURIComponent(modelSelect.value)}`
+            )
+          ).items;
+          setOptions(trimSelect, trims, preferred || defaults.trim || trims[0]);
+        }
+
+        yearSelect.addEventListener("change", () => syncMakes());
+        makeSelect.addEventListener("change", () => syncModels());
+        modelSelect.addEventListener("change", () => syncTrims());
+
+        await syncMakes();
+      }
+
+      function selectionFromRow(container) {
+        const yearValue = container.querySelector('[data-role="vehicle_year"]').value;
+        return {
+          vehicle_year: yearValue === "all" ? "all" : Number(yearValue),
+          manufacturer: container.querySelector('[data-role="manufacturer"]').value,
+          model: container.querySelector('[data-role="model"]').value,
+          trim: container.querySelector('[data-role="trim"]').value,
+        };
+      }
+
+      async function buildPrimaryRow() {
+        const template = document.getElementById("vehicle-row-template");
+        const container = document.getElementById("primary-row");
+        container.innerHTML = "";
+        container.appendChild(template.content.cloneNode(true));
+        await hydrateVehicleRow(container, {
+          vehicle_year: 2023,
+          manufacturer: "Tesla",
+          model: "Model 3",
+          trim: "Performance",
+        });
+      }
+
+      async function addComparisonRow(defaults = { vehicle_year: 2023, manufacturer: "Tesla", model: "Model Y", trim: "Performance" }) {
+        const wrapperTemplate = document.getElementById("comparison-row-template");
+        const fieldTemplate = document.getElementById("vehicle-row-template");
+        const fragment = wrapperTemplate.content.cloneNode(true);
+        const row = fragment.querySelector(".comparison-row");
+        const fields = row.querySelector('[data-role="fields"]');
+        fields.appendChild(fieldTemplate.content.cloneNode(true));
+        row.querySelector('[data-role="remove"]').addEventListener("click", () => row.remove());
+        document.getElementById("comparison-list").appendChild(row);
+        await hydrateVehicleRow(fields, defaults);
+      }
+
+      function mergeLabels(groups, xKey) {
+        const values = new Set();
+        groups.forEach((rows) => rows.forEach((row) => values.add(row[xKey])));
+        return [...values].sort();
+      }
+
+      function alignSeries(rows, labels, xKey, yKey) {
+        const map = new Map(rows.map((row) => [row[xKey], row[yKey]]));
+        return labels.map((label) => (map.has(label) ? map.get(label) : null));
+      }
+
+      function buildChartDefinition(labels, datasets, title, currencyAxis = true) {
+        return {
+          labels,
+          datasets,
+          title,
+          currencyAxis,
+        };
+      }
+
+      function createChartConfig(definition) {
+        return {
+          type: "line",
+          data: {
+            labels: definition.labels,
+            datasets: definition.datasets.map((dataset) => ({
+              label: dataset.label,
+              data: alignSeries(dataset.rows, definition.labels, dataset.xKey, dataset.yKey),
+              borderColor: dataset.color,
+              backgroundColor: dataset.color,
+              borderWidth: 3,
+              pointRadius: 2.5,
+              tension: 0.25,
+              spanGaps: true,
+            })),
+          },
+          options: {
+            responsive: true,
+            interaction: { mode: "index", intersect: false },
+            plugins: {
+              legend: { position: "bottom" },
+              title: { display: true, text: definition.title },
+            },
+            scales: {
+              x: {
+                ticks: {
+                  autoSkip: true,
+                  maxTicksLimit: state.currentView === "month" ? 12 : 10,
+                },
+              },
+              y: {
+                ticks: {
+                  callback: (value) =>
+                    definition.currencyAxis ? currency.format(value) : `${Number(value).toFixed(0)} index`,
+                },
+              },
+            },
+          },
+        };
+      }
+
+      function renderChart(key, canvasId, definition) {
+        state.chartDefs[key] = definition;
+        if (state.charts[key]) state.charts[key].destroy();
+        state.charts[key] = new Chart(
+          document.getElementById(canvasId),
+          createChartConfig(definition)
+        );
+        if (state.expandedChartKey === key && !document.getElementById("chart-modal").classList.contains("hidden")) {
+          openChartModal(key);
+        }
+      }
+
+      function buildSeriesLabel(selection, vehicleYear = null, trimLabel = null) {
+        const effectiveTrim = trimLabel || (selection.trim && selection.trim !== "All Trims" ? selection.trim : "");
+        const trimSuffix = effectiveTrim ? ` ${effectiveTrim}` : "";
+        if (vehicleYear == null) return selection.label;
+        return `${selection.manufacturer} ${selection.model}${trimSuffix} (${vehicleYear})`;
+      }
+
+      function priceSeriesForPayload(payload, xKey) {
+        const groupedRows = xKey === "month" ? payload.segmented_monthly || [] : payload.segmented_yearly || [];
+        const shouldSegment = groupedRows.length && (
+          payload.selection.vehicle_year == null || payload.selection.trim === "All Trims"
+        );
+        if (shouldSegment) {
+          return groupedRows
+            .filter((item) => item.rows && item.rows.length)
+            .map((item) => ({
+              label: buildSeriesLabel(payload.selection, item.vehicle_year, item.trim),
+              rows: item.rows,
+              xKey,
+              yKey: "average_price",
+            }));
+        }
+        return [
+          {
+            label: payload.selection.label,
+            rows: xKey === "month" ? payload.monthly : payload.yearly,
+            xKey,
+            yKey: "average_price",
+          },
+        ];
+      }
+
+      function normalizeIndexRows(rows, xKey) {
+        if (!rows.length) return [];
+        const base = rows[0].average_price;
+        return rows.map((row) => ({
+          [xKey]: row[xKey],
+          value_index: (row.average_price / base) * 100,
+        }));
+      }
+
+      function renderCharts(data) {
+        const isMonth = state.currentView === "month";
+        const xKey = isMonth ? "month" : "year";
+        const priceDatasets = [data.primary, ...data.comparisons].flatMap((payload) => priceSeriesForPayload(payload, xKey));
+        const priceDatasetsWithColor = priceDatasets.map((dataset, index) => ({
+          ...dataset,
+          color: palette[index % palette.length],
+        }));
+        const depreciationDatasets = priceDatasetsWithColor.map((dataset) => ({
+          label: dataset.label,
+          rows: normalizeIndexRows(dataset.rows, xKey),
+          xKey,
+          yKey: "value_index",
+          color: dataset.color,
+        }));
+
+        const priceLabels = mergeLabels(priceDatasetsWithColor.map((item) => item.rows), xKey);
+        const depreciationLabels = mergeLabels(depreciationDatasets.map((item) => item.rows), xKey);
+        document.getElementById("price-chart-title").textContent =
+          isMonth ? "Average Price by Month" : "Average Price by Year";
+        document.getElementById("depreciation-title").textContent =
+          isMonth ? "Monthly Depreciation Comparison" : "Yearly Depreciation Comparison";
+
+        renderChart(
+          "price",
+          "price-chart",
+          buildChartDefinition(
+            priceLabels,
+            priceDatasetsWithColor,
+            isMonth ? "Monthly price series" : "Yearly price series",
+            true
+          )
+        );
+        renderChart(
+          "depreciation",
+          "depreciation-chart",
+          buildChartDefinition(
+            depreciationLabels,
+            depreciationDatasets,
+            isMonth ? "Depreciation indexed to first visible month = 100" : "Depreciation indexed to first visible year = 100",
+            false
+          )
+        );
+      }
+
+      function updateSummary(data) {
+        document.getElementById("primary-average").textContent = currency.format(data.primary.summary.average_price);
+        document.getElementById("primary-depreciation").textContent = `${data.primary.summary.depreciation_pct.toFixed(1)}%`;
+        document.getElementById("coverage-label").textContent = data.primary.summary.coverage_label;
+        document.getElementById("coverage-value").textContent = `${data.primary.summary.coverage_value}`;
+        document.getElementById("comparison-count").textContent = `${data.comparisons.length}`;
+      }
+
+      function updateComparisonSummary(data) {
+        const list = document.getElementById("compare-summary-list");
+        list.innerHTML = "";
+        if (!data.comparisons.length) {
+          list.innerHTML = '<div class="compare-summary-item"><strong>No comparisons selected.</strong><span></span></div>';
+          return;
+        }
+        data.comparisons.forEach((comparison) => {
+          const item = document.createElement("div");
+          item.className = "compare-summary-item";
+          item.innerHTML = `
+            <div>
+              <strong>${comparison.selection.label}</strong>
+              <span>${comparison.summary.coverage_value} ${comparison.summary.coverage_label.toLowerCase()}</span>
+            </div>
+            <div>${comparison.summary.depreciation_pct.toFixed(1)}%</div>
+          `;
+          list.appendChild(item);
+        });
+      }
+
+      function updateRecords(data) {
+        document.getElementById("records-title").textContent = data.primary.records_title;
+        const body = document.getElementById("records-body");
+        body.innerHTML = "";
+        data.primary.records.slice().reverse().forEach((record) => {
+          const row = document.createElement("tr");
+          row.innerHTML = `
+            <td>${record.sale_date}</td>
+            <td>${record.title}</td>
+            <td>${currency.format(record.sale_price)}</td>
+            <td>${record.listing_url ? `<a href="${record.listing_url}" target="_blank" rel="noreferrer">Open</a>` : ""}</td>
+          `;
+          body.appendChild(row);
+        });
+      }
+
+      function updateProviderStatus(provider) {
+        state.provider = provider;
+        document.getElementById("provider-status").textContent =
+          `Active provider: ${provider.provider}. ${provider.message}`;
+      }
+
+      function openChartModal(key) {
+        const definition = state.chartDefs[key];
+        if (!definition) return;
+        state.expandedChartKey = key;
+        const modal = document.getElementById("chart-modal");
+        document.getElementById("modal-chart-title").textContent =
+          key === "price" ? document.getElementById("price-chart-title").textContent : document.getElementById("depreciation-title").textContent;
+        if (state.charts.modal) state.charts.modal.destroy();
+        state.charts.modal = new Chart(
+          document.getElementById("modal-chart"),
+          createChartConfig(definition)
+        );
+        modal.classList.remove("hidden");
+        modal.setAttribute("aria-hidden", "false");
+      }
+
+      function closeChartModal() {
+        const modal = document.getElementById("chart-modal");
+        modal.classList.add("hidden");
+        modal.setAttribute("aria-hidden", "true");
+        state.expandedChartKey = null;
+        if (state.charts.modal) {
+          state.charts.modal.destroy();
+          state.charts.modal = null;
+        }
+      }
+
+      function setView(view) {
+        state.currentView = view;
+        document.getElementById("toggle-month").classList.toggle("active", view === "month");
+        document.getElementById("toggle-year").classList.toggle("active", view === "year");
+        if (state.latestData) renderCharts(state.latestData);
+      }
+
+      async function runReport() {
+        setError("");
+        document.getElementById("message").textContent = "Loading price data...";
+        const comparisons = [...document.querySelectorAll("#comparison-list .comparison-row [data-role='fields']")]
+          .map((row) => selectionFromRow(row));
+        const payload = {
+          start_year: Number(document.getElementById("start-year").value),
+          primary: selectionFromRow(document.getElementById("primary-row")),
+          comparisons,
+        };
+
+        const response = await fetch("/api/prices", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const text = await response.text();
+        let data = null;
+        try {
+          data = JSON.parse(text);
+        } catch (error) {
+          setError(`Unexpected server response (${response.status}).`);
+          return;
+        }
+        if (!response.ok) {
+          setError(data.error || "Unable to load price data.");
+          return;
+        }
+
+        updateProviderStatus(data.provider);
+        document.getElementById("message").textContent =
+          `${data.provider.provider}. Data runs through ${data.last_month_end}.`;
+        state.latestData = data;
+        updateSummary(data);
+        updateComparisonSummary(data);
+        updateRecords(data);
+        renderCharts(data);
+      }
+
+      async function init() {
+        clearLegacyCatalogCache();
+        const provider = await fetchJSON("/api/provider");
+        updateProviderStatus(provider);
+        await buildPrimaryRow();
+        document.getElementById("add-comparison").addEventListener("click", () => addComparisonRow());
+        document.getElementById("run-report").addEventListener("click", runReport);
+        document.getElementById("toggle-month").addEventListener("click", () => setView("month"));
+        document.getElementById("toggle-year").addEventListener("click", () => setView("year"));
+        document.querySelectorAll("[data-expand-chart]").forEach((button) => {
+          button.addEventListener("click", () => openChartModal(button.dataset.expandChart));
+        });
+        document.getElementById("close-chart-modal").addEventListener("click", closeChartModal);
+        document.getElementById("chart-modal").addEventListener("click", (event) => {
+          if (event.target.id === "chart-modal") closeChartModal();
+        });
+        document.addEventListener("keydown", (event) => {
+          if (event.key === "Escape") closeChartModal();
+        });
+        document.getElementById("message").textContent =
+          "Choose vehicles, then click Update Tracker to load MarketCheck data.";
+      }
+
+      init().catch((error) => setError(error.message));
+    </script>
+  </body>
+</html>
